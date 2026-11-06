@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# gates-manifest [--check]   (source repository only)
+# gates-manifest [--check|--list]   (source repository only)
 # Writes MANIFEST.sha256: the sha256 of every file a consumer vendors into scripts/gates/ (the payload below: tracked files only), one `<sha256>  <path>` line per file, sorted by path. A consumer's pin records
 # the hash of this manifest; the manifest records the hash of every file. --check fails when the file differs from what would be written (Tier 1 runs it: a release whose manifest is stale could not be verified).
-# Not in the payload (the repository's own, or too tied to its layout to run vendored): tests/lint.sh, tests/run.sh, tests/test_harness.sh, tests/test_shared_attacks.sh and the maintainer tools of bin/.
+# Not in the payload (the repository's own, or too tied to its layout to run vendored): tests/lint.sh, tests/run.sh, the harness, the nested shared-attack test, the release and vendored-layout tests and the maintainer tools of bin/.
 set -euo pipefail
 export LC_ALL=C
 root=$(cd "$(dirname "$0")/.." && pwd); cd "$root"
-tool_bins=()   # the consumer-side commands of bin/ (none yet)
+tool_bins=(bin/tier1-core bin/gates-selftest bin/gates-check-config)   # the consumer-side commands of bin/
 payload=(VERSION KEYS "${tool_bins[@]}")
 while IFS= read -r f; do
   case $f in core/*|hooks/*|lean/*|attacks/*|tests/lean/*) payload+=("$f");; tests/lib.sh|tests/run-lean.sh) payload+=("$f");;
-    tests/test_harness.sh|tests/test_shared_attacks.sh) ;; tests/test_*.sh) payload+=("$f");; esac
+    tests/test_harness.sh|tests/test_shared_attacks.sh|tests/test_manifest_release.sh|tests/test_vendored_layout.sh) ;; tests/test_*.sh) payload+=("$f");; esac
 done < <(git ls-files | LC_ALL=C sort)
+[ "${1:-}" != --list ] || { printf '%s\n' "${payload[@]}" | LC_ALL=C sort; exit 0; }   # the payload paths (tests build a vendored copy from them)
 want=$(for f in "${payload[@]}"; do [ -f "$f" ] || { echo "gates-manifest: payload file missing: $f" >&2; exit 1; }; sha256sum -- "$f"; done | LC_ALL=C sort -k2)
 case ${1:-} in
   --check) [ "$(cat MANIFEST.sha256 2>/dev/null)" = "$want" ] || { echo "gates-manifest: MANIFEST.sha256 is stale: run bin/gates-manifest and commit it" >&2; exit 1; }; echo "gates-manifest: ok";;
   "") printf '%s\n' "$want" > MANIFEST.sha256; echo "gates-manifest: wrote MANIFEST.sha256 (${#payload[@]} files)";;
-  *) echo "usage: gates-manifest [--check]" >&2; exit 2;;
+  *) echo "usage: gates-manifest [--check|--list]" >&2; exit 2;;
 esac

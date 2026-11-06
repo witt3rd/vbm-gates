@@ -7,7 +7,7 @@ fail() { echo "FAIL manifest-release: $*" >&2; exit 1; }
 ssh-keygen -q -t ed25519 -N '' -C t -f "$T/key" && ssh-keygen -q -t ed25519 -N '' -C o -f "$T/other"
 world() {   # world: a scratch "origin" and a clone with the tools, a payload, files outside it, a signers file listing $T/key, a fresh manifest, pushed
   cd "$T"; rm -rf origin.git w; git init -q --bare -b main origin.git; git clone -q origin.git w 2>/dev/null; cd w; git config commit.gpgsign false
-  mkdir -p bin core hooks lean attacks tests/lean scripts; cp "$ROOT/bin/gates-manifest" "$ROOT/bin/gates-release" bin/
+  mkdir -p bin core hooks lean attacks tests/lean scripts; cp "$ROOT/bin/gates-manifest" "$ROOT/bin/gates-release" bin/; for b in tier1-core gates-selftest gates-check-config; do printf '#!/usr/bin/env bash\necho %s\n' "$b" > "bin/$b"; done
   echo 0.1.0 > VERSION; echo GATES_A > KEYS; printf '#!/usr/bin/env bash\necho c\n' > core/a.sh; echo h > hooks/h; echo l > lean/l.lean; echo x > attacks/01.sh; echo t > tests/lib.sh; echo t > tests/test_a.sh; echo t > tests/lean/test_l.sh
   echo n > tests/lint.sh; echo n > tests/run.sh; echo n > tests/test_harness.sh; echo n > tests/test_shared_attacks.sh; echo n > README.md; echo n > scripts/other.txt
   printf 'vbm-gates-release namespaces="git" %s\n' "$(cut -d' ' -f1-2 "$T/key.pub")" > scripts/gates.signers
@@ -15,7 +15,7 @@ world() {   # world: a scratch "origin" and a clone with the tools, a payload, f
 }
 world
 listed=$(awk '{print $2}' MANIFEST.sha256 | tr '\n' ' ')
-[ "$listed" = "KEYS VERSION attacks/01.sh core/a.sh hooks/h lean/l.lean tests/lean/test_l.sh tests/lib.sh tests/test_a.sh " ] && ok || fail "the manifest lists the wrong files: $listed"
+[ "$listed" = "KEYS VERSION attacks/01.sh bin/gates-check-config bin/gates-selftest bin/tier1-core core/a.sh hooks/h lean/l.lean tests/lean/test_l.sh tests/lib.sh tests/test_a.sh " ] && [ "$(bin/gates-manifest --list | tr '\n' ' ')" = "$listed" ] && ok || fail "the manifest lists the wrong files: $listed"
 [ "$(grep ' core/a.sh$' MANIFEST.sha256 | cut -d' ' -f1)" = "$(sha256sum < core/a.sh | cut -d' ' -f1)" ] && ok || fail "a hash in the manifest is wrong"
 bin/gates-manifest --check >/dev/null && ok || fail "a fresh manifest fails --check"
 chk() { bin/gates-manifest --check 2>&1; }

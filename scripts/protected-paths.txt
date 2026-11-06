@@ -5,6 +5,11 @@
 scripts/land/
 scripts/land.signers
 scripts/land-direct
+scripts/protected-paths.txt
+scripts/land.conf
+scripts/land.d/
+scripts/gates.signers
+.github/visibility
 # This repository's own gate sources (directories appear as their slices land).
 ?core/
 ?hooks/
@@ -13,7 +18,7 @@ scripts/land-direct
 ?bin/
 ?KEYS
 ?VERSION
-?scripts/gates.conf
+scripts/gates.conf
 tests/lint.sh
 tests/lib.sh
 tests/run.sh

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# gates-selftest [--lean]: the package's own hermetic tests, run by the consumer's Tier 1 on synthetic fixtures (seconds): "the gates can fail here", proved where they run. Each test builds its own scratch world and
+# reads none of the repository's real state (that is bin/gates-check-config). --lean runs the tests that need a Lean toolchain (tests/lean/), under it.
+set -euo pipefail
+export LC_ALL=C
+here=$(cd "$(dirname "$0")/.." && pwd); cd "$(git rev-parse --show-toplevel)"
+if [ "${1:-}" = --lean ]; then set -- "$here"/tests/lean/test_*.sh; else set -- "$here"/tests/test_*.sh; fi
+"$here/core/run-tests-parallel.sh" "$@"

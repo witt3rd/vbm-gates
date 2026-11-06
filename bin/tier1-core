@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# tier1-core [--lean]: the generic head of a consumer's Tier 1, in one call: the shared lints on the repository's tree, the drift check of the pinned lander, the checks that read the real conf, lists and stubs, the
+# package's hermetic self-tests, and the shared attack suite (the attacks that need lake only with --lean). A consumer's own tier1 script calls this first, then its own build and test steps.
+set -euo pipefail
+export LC_ALL=C
+here=$(cd "$(dirname "$0")/.." && pwd); cd "$(git rev-parse --show-toplevel)"
+lean=--no-lean; [ "${1:-}" != --lean ] || lean=
+"$here/core/lint-pipefail.sh"; "$here/core/lint-workflows.py"; "$here/core/lint-git-hermetic.sh"
+if [ -x scripts/land/bin/land-check ]; then scripts/land/bin/land-check; fi
+"$here/bin/gates-check-config"; "$here/bin/gates-selftest"
+"$here/core/relabel-attacks.sh" --tree "$PWD" $lean | tail -n 3
