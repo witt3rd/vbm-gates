@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Each lint of tests/lint.sh is shown able to FAIL: a scratch repository that holds one violation (and a clean control that passes). Hermetic: the lint under test is copied into the scratch world.
-. "$(dirname "$0")/lib.sh"; sandbox
+. "$(dirname "$0")/lib.sh"; . "$ROOT/core/git-hermetic.sh"; sandbox
 CLEAN_CI=$'name: ci\non:\n  push:\n    branches: [main]\npermissions:\n  contents: read\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: true\n'
 world() {   # world DIR: a scratch repository that passes every lint
   rm -rf "$1"; mkdir -p "$1/tests" "$1/.github/workflows"; cp "$ROOT/tests/lint.sh" "$1/tests/lint.sh"; printf 'public\n' > "$1/.github/visibility"

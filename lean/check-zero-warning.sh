@@ -5,9 +5,10 @@
 #   2. a file with a warning FAILS under -DwarningAsError=true, and its output carries the warning's own diagnostic ("not explicitly referenced"): a tool that was refused, missing or
 #      crashed also "fails", with some other output (the defect of the first version of this check: a heavy-tool guard refused `lake`, the check saw a failure and called it clean);
 #   3. a clean file PASSES under the same command (the control: the tool really runs here).
-# Prints `ran: zero-warning: 3 cases` on success. Run from the repo root: scripts/check-zero-warning.sh.
+# Prints `ran: zero-warning: 3 cases` on success. Run in the repository: lean/check-zero-warning.sh.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+export LC_ALL=C
+cd "$(git rev-parse --show-toplevel)"   # the consumer's repository (a vendored copy lives in scripts/gates/lean)
 bad() { echo "check-zero-warning: $*" >&2; exit 1; }
 grep -q 'warningAsError, true' lakefile.lean || bad "lakefile.lean does not set warningAsError"
 st=$(mktemp "${TMPDIR:-/tmp}/zero-warning.XXXXXX.lean"); trap 'rm -f "$st"' EXIT

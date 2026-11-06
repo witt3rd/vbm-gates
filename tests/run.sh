@@ -5,5 +5,5 @@ set -euo pipefail
 export LC_ALL=C
 here=$(cd "$(dirname "$0")" && pwd); cd "$here/.."
 tests/lint.sh; scripts/land/bin/land-check
-core/lint-pipefail.sh; core/lint-workflows.py   # the gates run on THIS repository's real tree here (their own tests use scratch worlds)
+core/lint-pipefail.sh; core/lint-workflows.py; core/lint-git-hermetic.sh   # the gates run on THIS repository's real tree here (their own tests use scratch worlds)
 core/run-tests-parallel.sh tests/test_*.sh
