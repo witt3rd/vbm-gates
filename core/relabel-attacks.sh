@@ -26,6 +26,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/git-hermetic.sh"   # hermetic git (scratch repository): no ambient config, explicit identity and branch
 . "$here/gates-conf.sh"; gates_load || { echo "relabel-attacks: gates.conf cannot be read (above): cannot decide" >&2; exit 2; }
 shared=$GATES_HOME/attacks; own=$GATES_SCRIPTS/attacks
+lake_ok() { command -v lake >/dev/null 2>&1 && lake --version >/dev/null 2>&1; }   # a refused (guarded) or missing lake is not usable
 tree=.; base=origin/main; only=; sab=0; nolean=0; mode=run
 while [ $# -gt 0 ]; do case $1 in
   --tree) tree=${2:?}; shift 2;; --base) base=${2:?}; shift 2;; --only) only=${2:?}; shift 2;; --sabotage) sab=1; shift;; --no-lean) nolean=1; shift;;
@@ -80,6 +81,7 @@ for id in $(ids); do
   . "$shared/lib.sh"; . "$(atkfile "$id")"
   if declare -F atk_na >/dev/null && atk_na; then say "n/a     $id: not applicable to this tree"; continue; fi   # e.g. an attack on a pinned copy, in the repository that holds the source
   if [ "$ATK_LEAN" = 1 ] && [ "$nolean" = 1 ]; then say "skip    $id: needs lake (--no-lean)"; continue; fi
+  if [ "$ATK_LEAN" = 1 ] && ! lake_ok; then say "skip    $id: needs lake, which is not usable on this host (a Lean toolchain is; the Lean leg of Tier 1 runs it)"; continue; fi
   n=$((n + 1))
   git reset -q --hard "$proposed"; git clean -fdq
   if [ "$sab" = 1 ]; then for f in "${ATK_GATE_FILES[@]}"; do neuter "$f"; done; git add -A; git commit -q --allow-empty -m "sabotaged"; fi

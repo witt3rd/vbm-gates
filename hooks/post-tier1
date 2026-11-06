@@ -9,7 +9,7 @@ touched=$(paste -sd' ' <<<"$out")
 [ -n "$touched" ] || exit 0
 echo "land.d/post-tier1: gate-defining files touched ($touched): the relabel-attack suite judges the proposed gates"
 start=$(date +%s); log="$LAND_STATE_DIR/attacks.log"
-if ! "$core/relabel-attacks.sh" --tree . --base "$LAND_BASE_REF" >"$log" 2>&1; then
+if ! "$core/relabel-attacks.sh" --tree . --base "$LAND_BASE_REF" >"$log" 2>&1; then   # (an attack that needs lake is skipped, and says so in the log, where lake is not usable)
   { grep -E '^(PASSED|BROKEN|MISSING|FAIL)' "$log" || tail -5 "$log"; } >&2
   echo "land.d/post-tier1: the relabel-attack suite fails on the proposed gates (an attack passes them; log: $log); not landing." >&2; exit 12
 fi

@@ -38,6 +38,9 @@ fixture "$W"; printf 'ATK_DESC="x"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh);
 must_fail "a gate that fails for another reason than the expected one" run --only 06-expect; grep -q 'not for the expected reason' <<<"$MUST_FAIL_ERR" && grep -q '^PASSED  06-expect' <<<"$MUST_FAIL_ERR" || fail "an unexpected reason was accepted: $MUST_FAIL_ERR"
 fixture "$W"; printf 'ATK_DESC="x"; ATK_LEAN=1\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_apply() { sed -i "/^keep$/d" data.txt; }\n' > attacks/07-lean.sh; git add -A; git commit -qm lean
 out=$(run --no-lean --only 07-lean) || true; grep -q 'skip    07-lean' <<<"$out" && ok || fail "--no-lean did not skip a Lean attack: $out"
+# a Lean attack is skipped, loudly, when lake is not usable on this host (a guard that refuses it, or none): never run against a broken tool
+mkdir -p "$T/nolake"; printf '#!/usr/bin/env bash\necho "guard: refused" >&2; exit 126\n' > "$T/nolake/lake"; chmod +x "$T/nolake/lake"
+out=$(PATH="$T/nolake:$PATH" run --only 07-lean) || true; grep -q 'skip    07-lean: needs lake, which is not usable' <<<"$out" && ok || fail "a Lean attack was not skipped when lake is refused: $out"
 # an attack that does not apply to this tree (atk_na) is reported n/a and not counted
 fixture "$W"; printf 'ATK_DESC="x"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_na() { true; }\natk_apply() { false; }\n' > attacks/08-na.sh; git add -A; git commit -qm na
 out=$(run) && grep -q 'n/a     08-na' <<<"$out" && grep -q '^PASS relabel-attacks: 3 of 3' <<<"$out" && ok || fail "a not-applicable attack was run or counted: $out"
