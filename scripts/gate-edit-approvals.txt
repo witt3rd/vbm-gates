@@ -1,0 +1,1 @@
+bin/gates-check-config,bin/gates-manifest,bin/gates-selftest,bin/tier1-core,scripts/protected-paths.txt,tests/run.sh | bad7bd528ca6ab27cb35e222ee98ecec1d02ade223b6afa7731b8c9e20d5e22c | S12b consumer commands, vendored-layout proof, acceptance, final README | 2026-11-06
