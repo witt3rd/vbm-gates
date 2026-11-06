@@ -1,1 +1,0 @@
-KEYS,core/gates-conf.sh,core/trust-ledger.py,core/trust-ledger.sh | 2c80ec0defc9c05c7a96eb25d0af52bb26f470b7e720691f86f8d6ebe6ef9705 | the trust-ledger gate generalised from the vbm-json and vbm-sse copies, off until GATES_TRUST_LEDGER is set (main: land gates trust-ledger 1) | 2026-11-06

@@ -12,7 +12,7 @@ conf empty '# nothing but a comment'; load "$T/empty.conf" >/dev/null && [ -z "$
 # every key of KEYS is accepted (the reader and KEYS cannot disagree): one line per key, each with a valid value
 : > "$T/all.conf"; n=0
 while read -r k; do
-  case $k in GATES_ATTACK_VARS) v='ATK_A=1 ATK_B=x/y';; GATES_AXIOM_ROOTS) v='LibA LibB';; GATES_SOURCE_DIRS) v="a/ b/c/";; GATES_RULES_FILE|GATES_TIER1|GATES_PROTECTED_LIST) v=x/y.txt;; *) v='x/a.sh y.txt';; esac
+  case $k in GATES_ATTACK_VARS) v='ATK_A=1 ATK_B=x/y';; GATES_AXIOM_ROOTS) v='LibA LibB';; GATES_SOURCE_DIRS) v="a/ b/c/";; GATES_RULES_FILE|GATES_TIER1|GATES_PROTECTED_LIST|GATES_TRUST_LEDGER|GATES_TRUST_EXTRA) v=x/y.txt;; *) v='x/a.sh y.txt';; esac
   printf '%s=%s\n' "$k" "$v" >> "$T/all.conf"; n=$((n + 1))
 done < <(sed 's/#.*//' "$ROOT/KEYS" | tr -s '[:space:]' '\n' | sed '/^$/d')
 [ "$n" -gt 0 ] && load "$T/all.conf" >/dev/null && ok || fail "a key of KEYS is not accepted by the reader ($(load "$T/all.conf"))"
