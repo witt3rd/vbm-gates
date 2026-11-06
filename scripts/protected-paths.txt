@@ -1,0 +1,20 @@
+# The structural protected set (vbm-land lib/approvals.sh): a landing whose net diff touches any path below is refused unless the base branch already holds a one-time approval
+# for exactly that set of paths and that diff (scripts/gate-edit-approvals.txt). One entry per line: a trailing / is a directory, anything else an exact path or a shell pattern;
+# a leading ? marks an entry that may match nothing yet. The list, the configuration and the hooks directory always count.
+# The pinned lander and its signers: a vbm-land update is a gate change.
+scripts/land/
+scripts/land.signers
+scripts/land-direct
+# This repository's own gate sources (directories appear as their slices land).
+?core/
+?hooks/
+?lean/
+?attacks/
+?bin/
+?KEYS
+?VERSION
+?scripts/gates.conf
+tests/lint.sh
+tests/lib.sh
+tests/run.sh
+.github/workflows/
