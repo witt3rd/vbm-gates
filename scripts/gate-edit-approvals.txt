@@ -1,0 +1,1 @@
+KEYS,core/gates-conf.sh,hooks/land.d-stub,hooks/post-rebase,hooks/prepare,scripts/gates.conf,scripts/land.conf,scripts/land.d/post-rebase,scripts/land.d/prepare | 6d35e181646afbcbfe9e13d61d8e21349d0f686609fcb1f4ebc62db58f791125 | S8b lander hooks via one stub, own wiring | 2026-11-06
