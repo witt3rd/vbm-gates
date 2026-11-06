@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# gates-release [--push]   (source repository, maintainer only)
+# Makes the release: the annotated, SIGNED tag v<VERSION> on HEAD, whose message records the hash of MANIFEST.sha256 (so the signature binds the manifest, and through it every vendored file). A consumer verifies
+# the signature against its own scripts/gates.signers (taken from this repository's, out of band) before it touches its tree (vbm-land: land-update --pkg gates).
+#   Requires: a clean tree, HEAD == origin/main (the release is what main is), a fresh MANIFEST.sha256, the tag not yet existing, the signing key listed in scripts/gates.signers, and the key:
+#   LAND_SIGNING_KEY=<path to an ssh key>. ssh signing, no gpg. Key custody and rotation are the maintainer's. The tag is verified against scripts/gates.signers right after it is made.
+#   --push also pushes the tag (never a branch).
+set -euo pipefail
+export LC_ALL=C
+root=$(cd "$(dirname "$0")/.." && pwd); cd "$root"
+push=0; [ "${1:-}" != --push ] || push=1
+key=${LAND_SIGNING_KEY:?set LAND_SIGNING_KEY to the ssh key that signs releases}
+[ -r "$key" ] || { echo "gates-release: cannot read $key" >&2; exit 2; }
+ver=$(cat VERSION); [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "gates-release: VERSION ($ver) is not a plain X.Y.Z" >&2; exit 2; }
+tag=v$ver
+[ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "gates-release: the tree is not clean" >&2; exit 1; }
+git fetch -q origin; [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "gates-release: HEAD is not origin/main: a release is what main is" >&2; exit 1; }
+bin/gates-manifest --check >/dev/null || { echo "gates-release: MANIFEST.sha256 is stale" >&2; exit 1; }
+! git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "gates-release: $tag already exists (tags are never moved)" >&2; exit 1; }
+pub=$(ssh-keygen -y -f "$key" | cut -d' ' -f2); grep -q "$pub" scripts/gates.signers || { echo "gates-release: the signing key is not listed in scripts/gates.signers: a consumer could not verify the release" >&2; exit 1; }
+git -c gpg.format=ssh -c "user.signingkey=$key" tag -s "$tag" -m "vbm-gates $tag" -m "manifest_sha256=$(sha256sum < MANIFEST.sha256 | cut -d' ' -f1)"
+git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=scripts/gates.signers verify-tag "$tag" >/dev/null 2>&1 || { git tag -d "$tag" >/dev/null; echo "gates-release: the new tag does not verify against scripts/gates.signers: removed" >&2; exit 1; }
+echo "gates-release: signed tag $tag on $(git rev-parse --short HEAD), verified against scripts/gates.signers"
+if [ "$push" = 1 ]; then git push -q origin "refs/tags/$tag"; echo "gates-release: pushed $tag"; else echo "gates-release: push it with: git push origin refs/tags/$tag"; fi

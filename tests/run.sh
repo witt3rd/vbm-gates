@@ -7,4 +7,5 @@ here=$(cd "$(dirname "$0")" && pwd); cd "$here/.."
 tests/lint.sh; scripts/land/bin/land-check
 core/lint-pipefail.sh; core/lint-workflows.py; core/lint-git-hermetic.sh   # the gates run on THIS repository's real tree here (their own tests use scratch worlds)
 core/relabel-attacks.sh --tree "$PWD" | tail -n 3   # every shared attack must be refused by this tree's own gates
+bin/gates-manifest --check   # the manifest of what a consumer vendors is current (the lander regenerates it on every landing)
 core/run-tests-parallel.sh tests/test_*.sh
