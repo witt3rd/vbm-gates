@@ -1,0 +1,20 @@
+# Tier 1 runs on a push to main only: the lander already ran it locally on the exact combination, so this is the independent check that defines "main is red".
+# Hosted runners only (this repository is public: never self-hosted), a read-only token, no secret, no pull_request trigger (hosted minutes are budgeted).
+name: ci
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  tier1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tier 1
+        run: tests/run.sh
