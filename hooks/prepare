@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# A new scratch worktree starts with a copy of the primary worktree's build directories (GATES_WARM_DIRS, e.g. .lake): the first landing is not a cold build.
+set -euo pipefail
+core=$(cd "$(dirname "$0")/../core" && pwd)
+. "$core/gates-conf.sh"
+gates_load || exit 12
+for d in $GATES_WARM_DIRS; do if [ -d "$LAND_TOP/$d" ]; then mkdir -p "$(dirname "$d")"; cp -a --reflink=auto "$LAND_TOP/$d" "$d"; fi; done
