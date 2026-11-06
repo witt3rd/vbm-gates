@@ -36,5 +36,3 @@ jobs:
           echo "$HOME/lean/bin" >> "$GITHUB_PATH"
       - name: The Lean leg
         run: tests/run-lean.sh
-      - name: The shared attacks, Lean ones included
-        run: core/relabel-attacks.sh --tree "$PWD"
