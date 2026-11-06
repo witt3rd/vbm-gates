@@ -17,3 +17,7 @@ GATES_WARM_DIRS
 #
 # The relabel-attack runner (core/relabel-attacks.sh): ATK_NAME=value pairs the repository's own attacks may read, in addition to the variables the runner always sets:
 GATES_ATTACK_VARS
+#
+# The Lean gates (lean/):
+GATES_SCAN_DIRS
+GATES_SPEC_ROOTS

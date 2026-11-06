@@ -13,9 +13,9 @@ printf 'LAND_TEST_CMD=true\n' > scripts/land.conf
 printf 'GATES_TIER1=t1.sh\nGATES_PROTECTED_LIST=plist.txt\nGATES_LISTS=plist.txt\nGATES_APPROVABLE=t1.sh\nGATES_SOURCE_DIRS=core/ hooks/ attacks/\n' > scripts/gates.conf
 printf '#!/usr/bin/env bash\nset -euo pipefail\necho one\necho two\necho "ran: t1: 1 cases"\n' > t1.sh; chmod +x t1.sh; printf 'core/\nhooks/\nt1.sh\n' > plist.txt
 git add -A; git commit -qm fixture
-ids=$(core/relabel-attacks.sh --list | wc -l); [ "$ids" -ge 35 ] && ok || fail "the shared set lists only $ids attacks"
+ids=$(core/relabel-attacks.sh --list | wc -l); [ "$ids" -ge 36 ] && ok || fail "the shared set lists only $ids attacks"
 out=$(core/relabel-attacks.sh --tree "$W" 2>&1) || fail "the shared attacks are not all refused on the synthetic tree: $(grep -vE '^REFUSED' <<<"$out")"
-n=$(grep -c '^REFUSED' <<<"$out"); [ "$n" -ge 35 ] && grep -q 'n/a     08f-pinned-gates-edited' <<<"$out" && grep -q "^PASS relabel-attacks: $n of $n" <<<"$out" && ok || fail "unexpected suite output: $out"
+n=$(grep -c '^REFUSED' <<<"$out"); [ "$n" -ge 36 ] && grep -q 'n/a     08f-pinned-gates-edited' <<<"$out" && grep -q "^PASS relabel-attacks: $n of $n" <<<"$out" && ok || fail "unexpected suite output: $out"
 sab=$(core/relabel-attacks.sh --tree "$W" --sabotage 2>&1) && fail "sabotage did not fail the suite"
 # a stubbed self-test is either not refused (PASSED) or caught by the control, which wants the test's ran-evidence line (BROKEN): never REFUSED, and the suite fails
 ! grep -q '^REFUSED' <<<"$sab" && [ "$(grep -cE '^(PASSED|BROKEN)' <<<"$sab")" = "$n" ] && grep -q '^FAIL relabel-attacks' <<<"$sab" && ok || fail "with every gate stubbed some attack was still refused: $(grep -vE '^(PASSED|BROKEN)' <<<"$sab")"
