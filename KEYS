@@ -1,0 +1,13 @@
+# The keys scripts/gates.conf may set (one per line; `#` comments). Read by the package's own reader (core/gates-conf.sh) and by vbm-land's drift check (land-check):
+# AN UNKNOWN KEY FAILS, so a typo cannot silently switch a gate off. Values are data (nothing is expanded or run); a path list is space-separated plain repository paths.
+# This file is append-only: a new key is a new line in a new release.
+#
+# The gate-diff judge's tables (core/gate-diff-improving.sh):
+GATES_TIER1
+GATES_STRICT
+GATES_LISTS
+GATES_SOURCE
+GATES_SOURCE_DIRS
+GATES_APPROVABLE
+GATES_RULES_FILE
+GATES_PROTECTED_LIST
