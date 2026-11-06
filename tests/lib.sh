@@ -24,4 +24,4 @@ gdi_world() {   # gdi_world [APPROVABLE...]: the synthetic world of the judge's 
   printf 'proved 5\nopen 3\nshare 2 3\nModA 4\n' > b/ledger.txt; printf '#!/usr/bin/env bash\nset -e\necho a\n' > t1.sh; printf 'v1\n' > pin.txt; printf 'x\n' > lists.txt; printf 'a/\nb.txt\n' > scripts/plist.txt
   printf 'g\n' > gate.sh; printf 'a\n' > scripts/attacks/01.sh; echo d > docs/a.md; git add -A; git commit -qm base; base=$(git rev-parse HEAD)
 }
-LANDLIB=$ROOT/scripts/land/lib   # vbm-land's library of the vendored lander (code under test, not data): ga_hash, the hash an approval binds
+LANDLIB=$ROOT/scripts/land/lib; [ -d "$LANDLIB" ] || LANDLIB=$ROOT/../land/lib   # vbm-land's library of the vendored lander (code under test, not data): ga_hash, the hash an approval binds; beside the package when it is vendored (scripts/gates)
