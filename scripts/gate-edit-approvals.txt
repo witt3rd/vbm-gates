@@ -1,0 +1,1 @@
+core/protected-set.sh | f5512b541a946668267c82295f8b7710964f76af6de8e4c3d4f8cca628245a8a | S6: protected-set glob version with --list and --superset, synthetic-list tests | 2026-11-06
