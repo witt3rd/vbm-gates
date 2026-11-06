@@ -1,1 +1,0 @@
-tests/run.sh | f07f5115e4b5442abcdd24be880ba7fddf7adfd60b88dea928c052d42e1d0e8b | drop the pre-landing manifest freshness check, gates-release still refuses a stale manifest (main: land drop manifest) | 2026-11-06
