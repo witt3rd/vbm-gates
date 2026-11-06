@@ -12,6 +12,7 @@ W=$T/w
 world "$W"; lint "$W" >/dev/null 2>&1 || { echo "FAIL control: the clean world does not pass the lint" >&2; exit 1; }; ok
 world "$W"; printf '#!/usr/bin/env bash\nif then\n' > "$W/tests/test_a.sh"; must_fail "unparsable script" lint "$W"
 world "$W"; chmod -x "$W/tests/test_a.sh"; must_fail "script not executable" lint "$W"
+world "$W"; printf 'echo hi\n' > "$W/tests/test_a.sh"; must_fail "executable without a #! line" lint "$W"
 world "$W"; printf 'see /%s/x\n' "home" > "$W/notes.md"; must_fail "local path" lint "$W"
 world "$W"; printf 'the %s\n' "cap""tain" > "$W/notes.md"; must_fail "internal name" lint "$W"
 world "$W"; sed -i 's/ubuntu-latest/self-hosted/' "$W/.github/workflows/ci.yml"; must_fail "self-hosted runner" lint "$W"

@@ -8,8 +8,10 @@ fail() { echo "lint: $*" >&2; bad=1; }
 files=$(git ls-files 2>/dev/null | grep -v '^scripts/land/' || true)
 for f in $files; do
   [ -f "$f" ] || continue
-  if head -n1 "$f" | grep -q '^#!.*\(bash\|sh\)'; then bash -n "$f" || fail "$f does not parse"; fi
-  case $f in tests/lib.sh|*.conf|*.txt|*.md|*.signers|*.yml|*.json) ;; core/*|hooks/*|bin/*|scripts/land-direct|tests/*.sh) [ -x "$f" ] || fail "$f is not executable";; esac
+  sb=0; [ "$(head -c2 "$f")" = '#!' ] && sb=1
+  case $f in *.sh) bash -n "$f" || fail "$f does not parse";; esac
+  # the mode follows the content (a vendored package keeps it that way): a file is executable iff it starts with #!
+  case $f in core/*|hooks/*|bin/*|lean/*|attacks/*|tests/*|scripts/land-direct) if [ -x "$f" ]; then [ "$sb" = 1 ] || fail "$f is executable but has no #! line"; else [ "$sb" = 0 ] || fail "$f has a #! line but is not executable"; fi;; esac
 done
 # names that must never appear (internal projects, hosts, people, local paths); the vendored copy is linted upstream
 deny='(first''mate|rog''er|mcfee''ly|sp''ire|ja''nus|/hom''e/|c''aptain|\bk''ing\b|\bpr''ince\b|fle''et|\blu''ng\b)'
