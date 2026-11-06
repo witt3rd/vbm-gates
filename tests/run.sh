@@ -6,4 +6,5 @@ export LC_ALL=C
 here=$(cd "$(dirname "$0")" && pwd); cd "$here/.."
 tests/lint.sh; scripts/land/bin/land-check
 core/lint-pipefail.sh; core/lint-workflows.py; core/lint-git-hermetic.sh   # the gates run on THIS repository's real tree here (their own tests use scratch worlds)
+core/relabel-attacks.sh --tree "$PWD" | tail -n 3   # every shared attack must be refused by this tree's own gates
 core/run-tests-parallel.sh tests/test_*.sh
