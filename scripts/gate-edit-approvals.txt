@@ -1,1 +1,0 @@
-.github/workflows/ci.yml,KEYS,attacks/07o-selftest-axiom-gate.sh,core/gates-conf.sh,core/relabel-attacks.sh,hooks/post-tier1,lean/AxiomGate.lean,lean/axiom-gate.sh,tests/lint.sh | 943bd3136e2643bcad3c7a5f48c4a23a9521f8a87a810333629c43ffc845650c | S11b axiom gate with roots from gates.conf, Lean leg, hosted Lean job | 2026-11-06
