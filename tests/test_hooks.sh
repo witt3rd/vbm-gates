@@ -10,7 +10,9 @@ world() {   # world LAYOUT(own|vendored): the base repository (the package's cod
   if [ "$1" = own ]; then P=.; cp -r "$ROOT/core" "$ROOT/hooks" "$ROOT/KEYS" .; else P=scripts/gates; mkdir -p scripts/gates; cp -r "$ROOT/core" "$ROOT/hooks" "$ROOT/KEYS" scripts/gates/; printf 'version=v0\n' > scripts/gates/PIN; fi
   printf 'GATES_TIER1=t1.sh\nGATES_LISTS=scripts/plist.txt\nGATES_PROTECTED_LIST=scripts/plist.txt\nGATES_APPROVABLE=t1.sh\nGATES_WARM_DIRS=cache\n' > scripts/gates.conf
   printf 'prot/\nscripts/plist.txt\n' > scripts/plist.txt; printf '#!/usr/bin/env bash\nset -e\necho a\n' > t1.sh; mkdir prot docs; echo p > prot/f; echo d > docs/a.md
-  for h in post-rebase prepare; do cp "$ROOT/hooks/land.d-stub" "scripts/land.d/$h"; done; chmod +x scripts/land.d/*
+  for h in post-rebase post-tier1 prepare; do cp "$ROOT/hooks/land.d-stub" "scripts/land.d/$h"; done; chmod +x scripts/land.d/*
+  mkdir -p $P/attacks; cp "$ROOT/attacks/lib.sh" $P/attacks/lib.sh; printf 'keep\n' > data.txt; printf '#!/usr/bin/env bash\ngrep -qx keep data.txt || exit 1\n' > g1.sh; chmod +x g1.sh; printf 'GATES_SOURCE=g1.sh\n' >> scripts/gates.conf
+  printf 'ATK_DESC="drop keep"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_apply() { sed -i "/^keep$/d" data.txt; }\n' > $P/attacks/01-drop.sh
   git add -A; git commit -qm base; base=$(git rev-parse HEAD)
 }
 land() {   # land HOOK: commit the working tree as the head and run the hook as the lander does (cwd = the proposed tree, base's objects in LAND_TOP); sets HRC, HOUT
@@ -30,8 +32,13 @@ for layout in own vendored; do
   [ "$HRC" = 12 ] && ok || fail "$layout: a proposal that rewrites the judge weakened the judge that judges it ($HRC): $HOUT"; git reset -q --hard "$base"
   # a proposal that makes gates.conf unreadable or adds an unknown key does not change the conf the judge reads (main's)
   printf 'GATES_TIER1=t1.sh\nGATES_TIER=x\n' > scripts/gates.conf; printf 'echo b || true\n' >> t1.sh; land post-rebase; [ "$HRC" = 12 ] && ok || fail "$layout: a proposed gates.conf loosened the rules it is judged by ($HRC): $HOUT"; git reset -q --hard "$base"
+  # post-tier1: nothing touched, no suite; a gate source touched, the suite (main's copy) judges the proposed gates
+  echo e >> docs/a.md; land post-tier1; [ "$HRC" = 0 ] && [ -z "$HOUT" ] && ok || fail "$layout: post-tier1 ran the suite for a change that touches no gate ($HRC): $HOUT"; git reset -q --hard "$base"
+  echo "# c" >> g1.sh; land post-tier1; [ "$HRC" = 0 ] && grep -q 'relabel-attack suite: PASS' <<<"$HOUT" && ok || fail "$layout: post-tier1 did not run and pass the suite for a touched gate ($HRC): $HOUT"; git reset -q --hard "$base"
+  printf '#!/usr/bin/env bash\nexit 0\n' > g1.sh; land post-tier1; [ "$HRC" = 12 ] && grep -q 'PASSED  01-drop' <<<"$HOUT" && ok || fail "$layout: a proposed gate that cannot fail was not refused by the suite ($HRC): $HOUT"; git reset -q --hard "$base"
   # main's own conf is unreadable (an unknown key at the base): cannot decide, refused
   printf 'GATES_TIER=x\n' > scripts/gates.conf; git add -A; git commit -qm badconf; base=$(git rev-parse HEAD); echo e >> docs/a.md; land post-rebase; [ "$HRC" = 12 ] && grep -q 'cannot decide' <<<"$HOUT" && ok || fail "$layout: an unreadable base conf did not refuse with a reason ($HRC): $HOUT"
+  git reset -q --hard "$base"; echo '# c' >> g1.sh; land post-tier1; [ "$HRC" = 12 ] && grep -q 'cannot decide' <<<"$HOUT" && ok || fail "$layout: post-tier1 let a change through when the conf is unreadable (fail open) ($HRC): $HOUT"
   # prepare: the warm directory of the primary worktree is copied into the scratch worktree
   world $layout; mkdir -p cache/sub; echo built > cache/sub/o; rm -rf "$T/scratch"; git worktree add -q "$T/scratch" HEAD
   ( cd "$T/scratch" && LAND_TOP=$T/w LAND_BASE_REF=$base LAND_STATE_DIR=$T/state scripts/land.d/prepare ) >/dev/null 2>&1; [ "$(cat "$T/scratch/cache/sub/o" 2>/dev/null)" = built ] && ok || fail "$layout: prepare did not copy the warm directory"

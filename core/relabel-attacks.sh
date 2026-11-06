@@ -1,50 +1,61 @@
 #!/usr/bin/env bash
 # The relabel-attack suite: a change to a GATE (its source, a list it reads, a baseline, tier1.sh, the lander) is judged by MECHANICAL checks, not by a human.
-# The gate review (the G6 report) showed every gate can be satisfied by relabeling; each such demonstration is a small ATTACK (scripts/attacks/NN-name.sh) that the
+# The gate review (the G6 report) showed every gate can be satisfied by relabeling; each such demonstration is a small ATTACK (NN-name.sh) that the
 # PROPOSED tree's gates must still REFUSE. The suite applies every attack, one at a time, in a scratch clone of the proposed tree and runs the proposed gates on it:
 # an attack any gate lets through REFUSES THE CHANGE. Attacks are judged against the proposed tree itself as the new base (what could the NEXT change do?).
-#   scripts/relabel-attacks.sh [--tree DIR] [--base REF] [--only ID] [--sabotage] [--no-lean]
-#   scripts/relabel-attacks.sh --list | --check-wired [--tree DIR]
+#   relabel-attacks.sh [--tree DIR] [--base REF] [--only ID] [--sabotage] [--no-lean]
+#   relabel-attacks.sh --list | --check-wired [--tree DIR]
+# THE ATTACKS ARE TWO SETS, one suite: the shared bodies of this package (attacks/, next to core/) and the repository's own attacks of its own wiring (scripts/attacks/, optional); an id in both is an error.
+# Both are main's copy (the runner runs from the judge tree the lander's stub unpacks from the base). The variables an attack body and its gate commands can read: G (the gates directory of the proposed tree:
+# scripts/gates, or . in this package's own repository), TIER1 and PLIST (the tier1 script and the protected list, from scripts/gates.conf), and the ATK_NAME=value pairs of GATES_ATTACK_VARS.
 # --tree DIR (default .): the proposed tree (a git checkout; its HEAD plus any working-tree edits). --base REF (default origin/main): the merge-base of the change; only
-#   used to check that no attack of THIS suite was dropped from the tree (the suite that judges a change is main's copy: the proposal cannot weaken its own judge).
+#   used by the hook. The suite that judges a change is main's copy (the proposal cannot weaken its own judge), and no attack of it may be dropped from the proposed tree (the shared ones live in the pin, whose
+#   drift check holds them; in this package's own repository they are checked here).
 # For each attack: a CONTROL (every gate command passes on the unattacked tree: else the gates are broken, and "refused" would be vacuous), then the attack is applied and
 #   committed, then each gate command runs; the attack is REFUSED when one of them fails (and, when the attack names one, its output carries the expected words).
 # --sabotage: the suite's own negative self-test: before each attack, every file the attack names in ATK_GATE_FILES is replaced by a stub that always succeeds ("a gate that
-#   cannot fail"); the attack must then be NOT refused, i.e. the suite must FAIL. A suite that still passes with its gate broken is itself broken (scripts/test_relabel_attacks.sh).
-# --no-lean: skip the attacks that need `lake` (ATK_LEAN=1): for the cheap Tier 1 self-test.   --list: the attack ids.   --check-wired: the lander's hooks call this suite and the diff judge.
+#   cannot fail"); the attack must then be NOT refused, i.e. the suite must FAIL. A suite that still passes with its gate broken is itself broken (tests/test_relabel_attacks.sh).
+# --no-lean: skip the attacks that need `lake` (ATK_LEAN=1): for the cheap Tier 1 self-test.   --list: the attack ids.   --check-wired: the lander's stubs are the package's stub and its hooks call this suite and the diff judge.
 # Exit: 0 PASS (every attack refused) | 1 FAIL (an attack passed the gates, a control failed, or an attack of the suite is missing from the tree) | 2 cannot decide.
 # The LAST line is PASS/FAIL with the seconds it took. An attack file defines: ATK_DESC, ATK_GATES (commands, run in the scratch root with $ATK_BASE = the proposed commit),
-# ATK_GATE_FILES, optionally ATK_LEAN=1 and ATK_EXPECT (a regex the refusal must print), and a function atk_apply (cwd = scratch root). scripts/attacks/lib.sh: helpers.
+# ATK_GATE_FILES, optionally ATK_LEAN=1 and ATK_EXPECT (a regex the refusal must print), and a function atk_apply (cwd = scratch root). attacks/lib.sh: helpers.
 export LC_ALL=C
 
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/git-hermetic.sh"   # hermetic git (scratch repository): no ambient config, explicit identity and branch
+. "$here/gates-conf.sh"; gates_load || { echo "relabel-attacks: gates.conf cannot be read (above): cannot decide" >&2; exit 2; }
+shared=$GATES_HOME/attacks; own=$GATES_SCRIPTS/attacks
 tree=.; base=origin/main; only=; sab=0; nolean=0; mode=run
 while [ $# -gt 0 ]; do case $1 in
   --tree) tree=${2:?}; shift 2;; --base) base=${2:?}; shift 2;; --only) only=${2:?}; shift 2;; --sabotage) sab=1; shift;; --no-lean) nolean=1; shift;;
   --list) mode=list; shift;; --check-wired) mode=wired; shift;; *) echo "usage: relabel-attacks.sh [--tree DIR] [--base REF] [--only ID] [--sabotage] [--no-lean] | --list | --check-wired" >&2; exit 2;; esac; done
-ids() { for f in "$here"/attacks/[0-9]*.sh; do b=${f##*/}; echo "${b%.sh}"; done; }   # sorted glob (LC_ALL=C)
+ids() { local f b; for f in "$shared"/[0-9]*.sh "$own"/[0-9]*.sh; do [ -e "$f" ] || continue; b=${f##*/}; echo "${b%.sh}"; done | sort; }   # sorted (LC_ALL=C), both sets
+dups=$(ids | uniq -d); [ -z "$dups" ] || { echo "relabel-attacks: an attack id is in both the shared set and the repository's own: $dups" >&2; exit 2; }
+atkfile() { if [ -e "$shared/$1.sh" ]; then echo "$shared/$1.sh"; else echo "$own/$1.sh"; fi; }
 if [ "$mode" = list ]; then ids; exit 0; fi
 tree=$(cd "$tree" && pwd)
-if [ "$mode" = wired ]; then   # the suite is only a judge if the lander's hooks call it and Tier 1 tests it: removing the call is an attack too
-  ok=1
-  for pair in "scripts/land.d/post-tier1:relabel-attacks\.sh" "scripts/land.d/post-rebase:gate-diff-improving\.sh"; do   # hook:what it must call
+treeG() { if [ -e "$1/scripts/gates/PIN" ]; then echo scripts/gates; else echo .; fi; }   # the gates directory of a tree: a vendored pin, or the package's own repository
+if [ "$mode" = wired ]; then   # the suite is only a judge if the lander's stubs run main's hooks and the hooks call it: removing a call is an attack too
+  ok=1; G=$(treeG "$tree")
+  for h in post-rebase post-tier1 prepare; do   # the stub installed under each hook name is the package's stub, byte for byte (prepare is optional)
+    [ "$h" = prepare ] && [ ! -e "$tree/scripts/land.d/prepare" ] && continue
+    cmp -s "$tree/scripts/land.d/$h" "$tree/$G/hooks/land.d-stub" && [ -x "$tree/scripts/land.d/$h" ] || { echo "relabel-attacks: scripts/land.d/$h is not the package's executable stub ($G/hooks/land.d-stub)" >&2; ok=0; }
+  done
+  for pair in "$G/hooks/post-tier1:relabel-attacks\.sh" "$G/hooks/post-rebase:gate-diff-improving\.sh"; do   # hook:what it must call
     l=${pair%%:*}; re=${pair#*:}
     [ -x "$tree/$l" ] || { echo "relabel-attacks: no executable $l in the tree" >&2; ok=0; continue; }
     code=$(grep -v '^[[:space:]]*#' "$tree/$l" || true); grep -q "$re" <<<"$code" || { echo "relabel-attacks: $l does not call ${re//\\/}" >&2; ok=0; }
   done
-  # and the stub must still run the pinned lander, whose hooks directory is the default
+  # and the entry script must still run the pinned lander, whose hooks directory is the default
   stubcode=$(grep -v '^[[:space:]]*#' "$tree/scripts/land-direct" 2>/dev/null || true)
   { [ -x "$tree/scripts/land/bin/land-direct" ] && grep -q 'land/bin/land-direct' <<<"$stubcode"; } || { echo "relabel-attacks: scripts/land-direct does not run the pinned lander (scripts/land/bin/land-direct)" >&2; ok=0; }
-  entry=$(cat "$tree/scripts/land-direct" 2>/dev/null || true)   # the entry script declares the wiring (comments included): the declaration and the hooks must agree
-  { grep -q 'post-rebase runs the gate-diff judge' <<<"$entry" && grep -q 'post-tier1 runs the relabel-attack suite' <<<"$entry"; } || { echo "relabel-attacks: scripts/land-direct no longer declares the wiring contract (post-rebase runs the gate-diff judge; post-tier1 runs the relabel-attack suite)" >&2; ok=0; }
-  [ -x "$tree/scripts/test_relabel_attacks.sh" ] || { echo "relabel-attacks: scripts/test_relabel_attacks.sh (the suite's negative self-test) is missing or not executable" >&2; ok=0; }
   [ "$ok" = 1 ]; exit; fi
 start=$SECONDS
 git -C "$tree" rev-parse --verify -q HEAD >/dev/null || { echo "FAIL relabel-attacks: $tree is not a git checkout with a HEAD" >&2; exit 2; }
 # the attacks of THIS suite (the lander's copy) must all still exist in the tree: an attack is dropped by a proposal only by relabeling
-missing=; for f in "$here"/attacks/[0-9]*.sh "$here"/attacks/lib.sh; do [ -e "$tree/scripts/attacks/${f##*/}" ] || missing="$missing ${f##*/}"; done
+G=$(treeG "$tree"); missing=; for f in "$shared"/[0-9]*.sh "$shared"/lib.sh; do [ -e "$tree/$G/attacks/${f##*/}" ] || missing="$missing ${f##*/}"; done
+for f in "$own"/[0-9]*.sh; do [ -e "$f" ] || continue; [ -e "$tree/scripts/attacks/${f##*/}" ] || missing="$missing ${f##*/}"; done
 S=$(mktemp -d "${TMPDIR:-/tmp}/relabel-attacks.XXXXXX"); trap 'rm -rf "$S"' EXIT
 git clone -q --shared --no-checkout "$tree" "$S/t" 2>/dev/null; cd "$S/t"
 git checkout -q --detach "$(git -C "$tree" rev-parse HEAD)"
@@ -53,11 +64,11 @@ git checkout -q --detach "$(git -C "$tree" rev-parse HEAD)"
 git -C "$tree" ls-files -d -z | while IFS= read -r -d '' f; do rm -f "$f"; done
 # the build the Lean attacks extend (as scripts/land does): the modules' .olean/IR, NOT the executables. No attack gate runs a binary of the tree (the gates are the lander's scripts and `lake env lean --run`
 # scripts/ClosureGate.lean, which read the compiled modules; `lake build VbmContextProofs` builds the proofs library), and the executables are left out: copied on every run into a /tmp that is tmpfs (no reflink),
-# nine times in one Tier 1: ~5 GB of RAM at the peak of the batch and ~2 s of system time (scripts/test_relabel_attacks.sh checks that no attack names a binary).
+# nine times in one Tier 1: ~5 GB of RAM at the peak of the batch and ~2 s of system time (tests/test_relabel_attacks.sh checks the suite itself).
 if [ -d "$tree/.lake" ]; then mkdir -p .lake; tar -C "$tree/.lake" --exclude=./build/bin -cf - . | tar -xf - -C .lake; fi || true
 git config core.hooksPath /dev/null; git add -A; git commit -q --allow-empty -m "the proposed tree"
 proposed=$(git rev-parse HEAD)
-export ATK_DIR=$here/attacks
+export G TIER1=$GATES_TIER1 PLIST=$GATES_PROTECTED_LIST; for v in $GATES_ATTACK_VARS; do export "$v"; done
 rc=0; pass=0; n=0; declare -A control=() cmsg=()
 say() { echo "$*"; }
 run_gate() {   # run_gate CMD: output in $S/out, exit code returned
@@ -66,7 +77,7 @@ run_gate() {   # run_gate CMD: output in $S/out, exit code returned
 for id in $(ids); do
   [ -z "$only" ] || [ "$only" = "$id" ] || continue
   ATK_DESC=; ATK_GATES=(); ATK_CONTROL=(); ATK_GATE_FILES=(); ATK_LEAN=0; ATK_EXPECT=
-  . "$here/attacks/lib.sh"; . "$here/attacks/$id.sh"
+  . "$shared/lib.sh"; . "$(atkfile "$id")"
   if [ "$ATK_LEAN" = 1 ] && [ "$nolean" = 1 ]; then say "skip    $id: needs lake (--no-lean)"; continue; fi
   n=$((n + 1))
   git reset -q --hard "$proposed"; git clean -fdq

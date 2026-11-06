@@ -9,13 +9,14 @@ GATES_HOME=$_gc_home; GATES_KEYS=$_gc_home/KEYS
 _gc_path_ok() { [[ "$1" =~ ^[A-Za-z0-9_@+.][A-Za-z0-9_./@+-]*$ && "/$1/" != *"/../"* && "/$1/" != *"/./"* && "$1" != *//* ]]; }   # a plain relative path (a trailing / is a directory)
 gates_load() {
   local conf=${1:-$GATES_SCRIPTS/gates.conf} k v p
-  GATES_TIER1=scripts/tier1.sh GATES_PROTECTED_LIST=scripts/protected-paths.txt GATES_STRICT= GATES_LISTS= GATES_SOURCE= GATES_SOURCE_DIRS= GATES_APPROVABLE= GATES_RULES_FILE= GATES_WARM_DIRS=
+  GATES_TIER1=scripts/tier1.sh GATES_PROTECTED_LIST=scripts/protected-paths.txt GATES_STRICT= GATES_LISTS= GATES_SOURCE= GATES_SOURCE_DIRS= GATES_APPROVABLE= GATES_RULES_FILE= GATES_WARM_DIRS= GATES_ATTACK_VARS=
   pkgconf_load gates "$conf" "$GATES_KEYS" || return 2
   for k in GATES_TIER1 GATES_PROTECTED_LIST GATES_RULES_FILE; do v=${!k}; { [ -z "$v" ] && [ "$k" = GATES_RULES_FILE ]; } || { _gc_path_ok "$v" && [[ "$v" != */ ]]; } || { echo "gates.conf: $k must be one plain repository path (is '$v')" >&2; return 2; }; done
   for k in GATES_STRICT GATES_LISTS GATES_SOURCE GATES_SOURCE_DIRS GATES_APPROVABLE GATES_WARM_DIRS; do
     for p in ${!k}; do _gc_path_ok "$p" || { echo "gates.conf: $k holds '$p', which is not a plain repository path" >&2; return 2; }; done
   done
   for p in $GATES_SOURCE_DIRS; do [[ "$p" == */ ]] || { echo "gates.conf: GATES_SOURCE_DIRS entry '$p' must end in /" >&2; return 2; }; done
+  for p in $GATES_ATTACK_VARS; do [[ "$p" =~ ^ATK_[A-Z0-9_]+=[A-Za-z0-9_./@:+,-]*$ ]] || { echo "gates.conf: GATES_ATTACK_VARS holds '$p', which is not ATK_NAME=plain-value" >&2; return 2; }; done
   for p in $GATES_WARM_DIRS; do [[ "$p" != */ ]] || { echo "gates.conf: GATES_WARM_DIRS entry '$p' must not end in /" >&2; return 2; }; done
   return 0
 }

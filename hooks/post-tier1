@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# After Tier 1 passed (run from main's copy by the stub): when the change touches a gate-defining file (gate-diff-improving.sh --touched), the RELABEL-ATTACK SUITE (main's copy) judges the PROPOSED gates:
+# every demonstrated attack is applied to the proposed tree and its gates must refuse each one. Only such a change pays the minutes. A failing suite is exit 12.
+set -euo pipefail
+core=$(cd "$(dirname "$0")/../core" && pwd)
+rc=0; out=$("$core/gate-diff-improving.sh" --touched "$LAND_BASE_REF" HEAD 2>&1) || rc=$?
+[ "$rc" = 0 ] || { printf '%s\n' "$out" | tail -5 >&2; echo "land.d/post-tier1: the gate-defining files cannot be listed (exit $rc, above): cannot decide; not landing." >&2; exit 12; }   # fail closed: an unreadable conf is not "nothing touched"
+touched=$(paste -sd' ' <<<"$out")
+[ -n "$touched" ] || exit 0
+echo "land.d/post-tier1: gate-defining files touched ($touched): the relabel-attack suite judges the proposed gates"
+start=$(date +%s); log="$LAND_STATE_DIR/attacks.log"
+if ! "$core/relabel-attacks.sh" --tree . --base "$LAND_BASE_REF" >"$log" 2>&1; then
+  { grep -E '^(PASSED|BROKEN|MISSING|FAIL)' "$log" || tail -5 "$log"; } >&2
+  echo "land.d/post-tier1: the relabel-attack suite fails on the proposed gates (an attack passes them; log: $log); not landing." >&2; exit 12
+fi
+echo "land.d/post-tier1: relabel-attack suite: $(tail -n1 "$log") [$(( $(date +%s) - start )) s wall, paid only because a gate-defining file is touched]"
