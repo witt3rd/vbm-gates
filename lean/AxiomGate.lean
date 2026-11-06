@@ -1,8 +1,6 @@
 import Lean
-import LeanJson
-import LeanJsonProofs
-/-! Axiom gate (Tier 1 here: the library is small, so it is cheap): every constant defined in a `LeanJson` or `LeanJsonProofs` module may depend only
-on the three standard axioms. Exits non-zero (and names the offenders) otherwise. `--selftest` also proves the gate can fail: a
+/-! Axiom gate: every constant defined in a module of the library's roots (the environment variable AXIOM_ROOTS, space-separated module names, set from gates.conf by lean/axiom-gate.sh; each root is a
+module that imports its library) may depend only on the three standard axioms. Exits non-zero (and names the offenders) otherwise. `--selftest` also proves the gate can fail: a
 synthetic constant that declares a non-standard axiom is added to the environment, and the audit must reject it. -/
 open Lean
 
@@ -104,11 +102,18 @@ def plant : CoreM (Array Name × Array Name) := do
     tops := tops.push prev
   return (tops, #[`Quot, `Quot.mk, `Quot.lift, `Quot.ind, `Nat.add_comm, `Classical.em, `propext, `Classical.choice, `Quot.sound])
 
-def ours (r : Name) : Bool := r == `LeanJson || r == `LeanJsonProofs
+/-- The module roots of the library under test, from AXIOM_ROOTS: the gate imports them at run time, so one copy of this file serves every library. -/
+def rootsFromEnv : IO (Array Name) := do
+  let some v ← IO.getEnv "AXIOM_ROOTS" | throw (IO.userError "axiom gate: AXIOM_ROOTS is not set (the module roots to check, space-separated)")
+  let rs := (v.splitOn " ").filter (· ≠ "") |>.map String.toName |>.toArray
+  if rs.isEmpty then throw (IO.userError "axiom gate: AXIOM_ROOTS is empty")
+  return rs
 
 def main (args : List String) : IO UInt32 := do
   initSearchPath (← findSysroot)
-  let env ← importModules #[{ module := `LeanJson }, { module := `LeanJsonProofs }] {}
+  let roots ← rootsFromEnv
+  let ours (r : Name) : Bool := roots.contains r
+  let env ← importModules (roots.map fun m => { module := m }) {}
   -- the constants of our modules, read from those modules' own data (not by filtering every imported constant)
   let mut names : Array Name := #[]
   for h : i in [0:env.header.moduleNames.size] do
@@ -120,7 +125,7 @@ def main (args : List String) : IO UInt32 := do
     unless (unionAxioms usedOf env [`Classical.em] {} {}).contains `Classical.choice do
       IO.eprintln "tier1: the axiom gate's shared walk does not find Classical.choice behind Classical.em"; return 1
     let ctx : Core.Context := { fileName := "", fileMap := default }
-    -- the real proof set: every constant with AXIOM_DIFF_FULL=1 (scripts/tier2.sh: about 2 CPU minutes), else every 40th (the oracle is the old quadratic audit); the shared walk's axiom set must equal Lean's, per constant
+    -- the real proof set: every constant with AXIOM_DIFF_FULL=1 (about 2 CPU minutes for a library of json's size: a slower leg than Tier 1), else every 40th (the oracle is the old quadratic audit); the shared walk's axiom set must equal Lean's, per constant
     let all := (← IO.getEnv "AXIOM_DIFF_FULL").isSome
     -- the constants checked are the constants of our modules: the module-data enumeration above equals the old filter over every imported constant (the printed count is the same; the
     -- filter scans about 170,000 constants in the interpreter, about 4 CPU s, so it runs with the full differential)

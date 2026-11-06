@@ -12,7 +12,7 @@ conf empty '# nothing but a comment'; load "$T/empty.conf" >/dev/null && [ -z "$
 # every key of KEYS is accepted (the reader and KEYS cannot disagree): one line per key, each with a valid value
 : > "$T/all.conf"; n=0
 while read -r k; do
-  case $k in GATES_ATTACK_VARS) v='ATK_A=1 ATK_B=x/y';; GATES_SOURCE_DIRS) v="a/ b/c/";; GATES_RULES_FILE|GATES_TIER1|GATES_PROTECTED_LIST) v=x/y.txt;; *) v='x/a.sh y.txt';; esac
+  case $k in GATES_ATTACK_VARS) v='ATK_A=1 ATK_B=x/y';; GATES_AXIOM_ROOTS) v='LibA LibB';; GATES_SOURCE_DIRS) v="a/ b/c/";; GATES_RULES_FILE|GATES_TIER1|GATES_PROTECTED_LIST) v=x/y.txt;; *) v='x/a.sh y.txt';; esac
   printf '%s=%s\n' "$k" "$v" >> "$T/all.conf"; n=$((n + 1))
 done < <(sed 's/#.*//' "$ROOT/KEYS" | tr -s '[:space:]' '\n' | sed '/^$/d')
 [ "$n" -gt 0 ] && load "$T/all.conf" >/dev/null && ok || fail "a key of KEYS is not accepted by the reader ($(load "$T/all.conf"))"
@@ -35,6 +35,7 @@ conf r11 'GATES_WARM_DIRS=.lake build'; [ "$(get "$T/r11.conf" GATES_WARM_DIRS)"
 refuse r10 "a warm dir with a trailing /" 'GATES_WARM_DIRS=.lake/' 'must not end in /'
 refuse r13 "an attack var that is not ATK_NAME=value" 'GATES_ATTACK_VARS=LAND_X=1' 'not ATK_NAME'
 refuse r14 "an attack var with a space-free but unsafe value" 'GATES_ATTACK_VARS=ATK_X=$(id)' 'not ATK_NAME'
+refuse r15 "a module root with a dot" 'GATES_AXIOM_ROOTS=Lib.Sub' 'not a module root name'
 refuse r12 "a bare dot" 'GATES_LISTS=.' 'not a plain repository path'
 [ ! -e /should-not-exist-x ] && ok || fail "a value was executed"
 finish gates_conf
