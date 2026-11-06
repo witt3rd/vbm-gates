@@ -1,0 +1,1 @@
+.github/workflows/ci.yml,.github/workflows/vbm-land-update.yml,core/lint-pipefail.sh,core/lint-workflows.py,tests/lint.sh,tests/run.sh | 1517d6c49306000ccf21ed00c39ce8832f102afecd2d40774bdd89264e64a037 | S5: shared pipefail and workflow lints, hermetic tests, workflows without secrets | 2026-11-06
