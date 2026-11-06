@@ -30,8 +30,8 @@ for w in .github/workflows/*.yml; do
 done
 # a test builds its OWN world: it never reads the real repository's approvals, lists, baselines, configuration or tags (a test that did failed the first real approval)
 hits=$(grep -nE '(\$\{?(ROOT|root|here)\}?|\.\./)[^ "]*(approvals|protected-paths|baseline|gates\.conf|land\.conf|signers)|git +-C +"?\$\{?(ROOT|root)\}?"? +(tag|log|show|describe|rev-parse|ls-files|cat-file|for-each-ref|diff)|(cat|grep|sed|head|tail|wc|source|\.) +[^|;&]*(^| |")scripts/[a-z.-]*(approvals|protected-paths|gates\.conf)' tests/lib.sh tests/test_*.sh 2>/dev/null || true)
-[ -z "$hits" ] || fail "a test reads the real repository's approvals, lists, baselines, config or tags (build a scratch world): $(echo "$hits" | head -2 | tr '\n' ' ' | cut -c1-200)"
+[ -z "$hits" ] || fail "a test reads the real repository's approvals, lists, baselines, config or tags (build a scratch world): $(echo "$hits" | sed -n 1,2p | tr '\n' ' ' | cut -c1-200)"
 # a test never looks at the machine-wide tmp dir: it lists, finds or removes only under its own sandbox ($T, whose TMPDIR tests/lib.sh sets)
 hits=$(grep -nE '(ls|find|rm|cat|grep)[^|;&]*(\$\{?TMPDIR:-/tmp\}?|[ "'"'"'=]/tmp)[^|;& ]*\*' tests/test_*.sh 2>/dev/null || true)
-[ -z "$hits" ] || fail "a test reads the shared tmp dir (use its own sandbox, \$T): $(echo "$hits" | head -2 | tr '\n' ' ' | cut -c1-200)"
+[ -z "$hits" ] || fail "a test reads the shared tmp dir (use its own sandbox, \$T): $(echo "$hits" | sed -n 1,2p | tr '\n' ' ' | cut -c1-200)"
 exit "$bad"
