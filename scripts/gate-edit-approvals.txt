@@ -1,1 +1,0 @@
-core/git-hermetic.sh,core/lint-git-hermetic.sh,lean/check-zero-warning.sh,tests/lib.sh,tests/run.sh | 87e4939a8cc59395b7de522434305dc43b333704e979098d49626d910762fff2 | S5b: hermetic git helper and lint, zero-warning check with stub-compiler tests | 2026-11-06
