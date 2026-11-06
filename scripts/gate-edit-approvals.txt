@@ -1,0 +1,1 @@
+KEYS,core/gates-conf.sh | c9cd6fc6bf52054b5362adc62c3c33e0fb43957bd69e1af7d63f5ddcfe98edff | S7 gates.conf keys and reader | 2026-11-06
