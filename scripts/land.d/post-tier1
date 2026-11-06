@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# THE STUB a repository installs as scripts/land.d/post-rebase, scripts/land.d/post-tier1 and scripts/land.d/prepare (the same file under each name; this repository's own copies are the same text).
+# The lander runs a hook from origin/main, in the scratch worktree of the proposed tree. The judge must be main's copy, not the proposal's: so the stub unpacks main's tree and runs the hook of that
+# name from it, which finds main's scripts/gates.conf, main's pinned core and main's lander library beside itself. A proposal can therefore never weaken the check that judges it.
+set -euo pipefail
+j="$LAND_STATE_DIR/judge"; rm -rf "$j"; mkdir -p "$j"
+if git -C "$LAND_TOP" cat-file -e "$LAND_BASE_REF:scripts/gates/PIN" 2>/dev/null; then   # a repository that vendors the package
+  git -C "$LAND_TOP" archive "$LAND_BASE_REF" -- scripts | tar -x -C "$j"; h=$j/scripts/gates/hooks
+else git -C "$LAND_TOP" archive "$LAND_BASE_REF" | tar -x -C "$j"; h=$j/hooks; fi   # the package's own repository
+exec "$h/$(basename "$0")" "$@"
