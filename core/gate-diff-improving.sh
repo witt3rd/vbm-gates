@@ -12,6 +12,10 @@
 #   --suite-judged (what the lander's post-rebase hook runs): a LIST or GATE SOURCE change is not owner-only but judged by the RELABEL-ATTACK SUITE (run by the lander's post-tier1 hook on the
 #      proposed tree) instead; here it PASSes except the protected list (GATES_PROTECTED_LIST), which must still protect everything the base list did
 #      (protected-set.sh --superset). the Tier 1 script and the numeric baselines are judged the same in both modes.
+#   GATE-EDIT APPROVALS (the one rule: THE JUDGE RECOMPUTES THE HASH): a landing that consumes an exact-diff approval ($LAND_GATE_APPROVED_FILE, `FILE HASH` per line, set by the lander) relaxes ONLY the removed or
+#      changed lines of a file in GATES_APPROVABLE (the Tier 1 script or a strict file) and, for a baseline file in GATES_APPROVABLE, the wrong-way move of a row whose rule says `approvable`. The approval counts only when
+#      the hash is also what THIS judge computes, with the lander's own function (vbm-land lib/approvals.sh ga_hash), for the diff it is judging: a list that names another file, another diff, a file that is not
+#      approvable, or an empty or missing list approves nothing. ADDED lines are still judged (a masked line stays a FAIL); lists, gate source and every other baseline row are never relaxed.
 #   --touched <base> <head>: print the gate-defining files the change touches (one per line; nothing = none): the lander runs the suite exactly when this prints something.
 # Files outside this set are not judged here (protected-set.sh judges the wider protected set). Self-test: tests/test_gate_diff_improving.sh.
 set -euo pipefail
@@ -22,7 +26,7 @@ usage="usage: gate-diff-improving.sh [--conf FILE] [--suite-judged|--touched] <b
 while :; do case ${1:-} in --suite-judged) GDI_SUITE=1; shift;; --touched) GDI_TOUCHED=1; shift;; --conf) conf=${2:?$usage}; shift 2;; *) break;; esac; done
 base=${1:?$usage}; head=${2:?$usage}
 gates_load ${conf:+"$conf"} || exit 2   # the tables: an unknown key or a malformed value cannot decide
-export GDI_TIER1=$GATES_TIER1 GDI_STRICT=$GATES_STRICT GDI_LISTS=$GATES_LISTS GDI_SOURCE=$GATES_SOURCE GDI_SOURCE_DIRS=$GATES_SOURCE_DIRS GDI_RULES_FILE=$GATES_RULES_FILE GDI_PLIST=$GATES_PROTECTED_LIST
+export GDI_LAND_LIB=$GATES_SCRIPTS/land/lib GDI_APPROVABLE=$GATES_APPROVABLE GDI_TIER1=$GATES_TIER1 GDI_STRICT=$GATES_STRICT GDI_LISTS=$GATES_LISTS GDI_SOURCE=$GATES_SOURCE GDI_SOURCE_DIRS=$GATES_SOURCE_DIRS GDI_RULES_FILE=$GATES_RULES_FILE GDI_PLIST=$GATES_PROTECTED_LIST
 mb=$(git merge-base "$base" "$head") || { echo "gate-diff-improving: no merge base for $base $head" >&2; exit 2; }
 # The judge is bounded: GDI_TIMEOUT seconds (default 120), then exit 2 "cannot decide" with a clear message (a gate must never hold the land lock unbounded).
 rc=0; timeout -k 5 "${GDI_TIMEOUT:-120}" python3 - "$mb" "$head" <<'PY' || rc=$?
@@ -38,7 +42,7 @@ def git(*a, check=True):
 changed = set(git("diff", "--name-only", "--no-renames", mb, head).split("\n")) - {""}
 def show(ref, p): return git("show", f"{ref}:{p}", check=False)
 
-# RULES: baseline file -> [(key regex, {field: rule}, removable)], from the rules file (GATES_RULES_FILE, as of the base), one rule per line: `FILE | KEY-REGEX | FIELDS | removable|fixed`, FIELDS = `f0=down,f1=ratio` or `*=down`.
+# RULES: baseline file -> [(key regex, {field: rule}, removable)], from the rules file (GATES_RULES_FILE, as of the base), one rule per line: `FILE | KEY-REGEX | FIELDS | removable|fixed [| approvable]`, FIELDS = `f0=down,f1=ratio` or `*=down`.
 # Fields are `name=int` or positional (f0, f1, ...). Rules: down (may only fall), up (may only rise), free (not a ratchet), ratio (f0 f1: the fraction f0/f1 may only rise, compared exactly). A key absent on one side counts as 0 on it
 # (a new unverified module or a new allocation is a raise); a key that is `fixed` may not disappear (a target, or coverage of a function/module). A baseline file without a rule FAILS as unknown.
 def conf_list(n): return os.environ.get(n, "").split()
@@ -51,16 +55,25 @@ def load_rules():
         if not l.split("#")[0].strip(): continue
         c = [x.strip() for x in l.split("#")[0].split("|")]
         try:
-            f, rx, fl, rm = c; re.compile(rx); assert rm in ("removable", "fixed")
+            f, rx, fl, rm, *ap = c; re.compile(rx); assert rm in ("removable", "fixed") and ap in ([], ["approvable"])
             fields = dict(x.split("=") for x in fl.split(","))
             assert fields and all(v in ("down", "up", "free", "ratio") for v in fields.values()) and all(re.fullmatch(r"\*|f\d+|[A-Za-z_][A-Za-z0-9_]*", k) for k in fields)
         except Exception:
-            die(f"{rf}:{n}: not `FILE | KEY-REGEX | FIELDS | removable|fixed`: {l}")
-        rules.setdefault(f, []).append((rx, fields, rm == "removable"))
+            die(f"{rf}:{n}: not `FILE | KEY-REGEX | FIELDS | removable|fixed [| approvable]`: {l}")
+        rules.setdefault(f, []).append((rx, fields, rm == "removable", bool(ap)))
     return rules
 RULES = load_rules()
 LISTS, SOURCE, STRICT, SOURCE_DIRS = conf_list("GDI_LISTS"), conf_list("GDI_SOURCE"), conf_list("GDI_STRICT"), conf_list("GDI_SOURCE_DIRS")
 TIER1, PLIST = os.environ["GDI_TIER1"], os.environ["GDI_PLIST"]
+APPROVABLE = conf_list("GDI_APPROVABLE")
+def approved_gate_edit(p):
+    """The hash of the diff of p between the merge base and the head, recomputed with the lander's own function, when an approval of exactly that file and diff is in the lander's list; else None."""
+    f = os.environ.get("LAND_GATE_APPROVED_FILE", "")
+    if p not in APPROVABLE or not f or not os.path.isfile(f): return None
+    lines = {l.strip() for l in open(f).read().splitlines()}
+    r = subprocess.run(["bash", "-c", '. "$1/approvals.sh" && ga_hash . "$2" "$3" "$4"', "_", os.environ["GDI_LAND_LIB"], mb, head, p], capture_output=True, text=True)
+    h = r.stdout.strip()
+    return h if r.returncode == 0 and re.fullmatch(r"[0-9a-f]{64}", h) and f"{p} {h}" in lines else None
 out, bad = [], 0
 def say(ok, f, why):
     global bad; bad += (not ok); out.append(f"{'PASS' if ok else 'FAIL'} {f}: {why}")
@@ -80,12 +93,12 @@ def parse(text):
 def baseline(p):
     o, n = show(mb, p), show(head, p)
     if o is None or n is None: return say(False, p, "the baseline " + ("appears" if o is None else "disappears") + " (owner only)")
-    old, new, why = parse(o), parse(n), []
+    old, new, why, soft = parse(o), parse(n), [], []   # soft: the complaints an approval may relax (a wrong-way move of an `approvable` row)
     for k in sorted(set(old) | set(new)):
         line = (new.get(k) or old[k])[0]
-        rule = next(((fl, rm) for rx, fl, rm in RULES[p] if re.fullmatch(rx, k)), None)
+        rule = next(((fl, rm, ap) for rx, fl, rm, ap in RULES[p] if re.fullmatch(rx, k)), None)
         if rule is None: why.append(f"unknown key '{k}': +{line}"); continue
-        fl, removable = rule
+        fl, removable, approvable = rule
         if k not in new and not removable: why.append(f"key '{k}' removed: -{old[k][0]}"); continue
         ov, nv = (old.get(k) or ("", {}))[1], (new.get(k) or ("", {}))[1]
         if ov == nv: continue
@@ -98,9 +111,12 @@ def baseline(p):
             if r == "ratio":
                 if f == "f0":  # judged once, on the pair
                     (s0, t0), (s1, t1) = (ov.get("f0", 0), ov.get("f1", 1)), (nv.get("f0", 0), nv.get("f1", 1))
-                    if s1 * t0 < s0 * t1: why.append(f"'{k}' fell {s0}/{t0} -> {s1}/{t1}: -{old[k][0]} +{line}")
+                    if s1 * t0 < s0 * t1: why.append(f"'{k}' fell {s0}/{t0} -> {s1}/{t1}: -{old[k][0]} +{line}"); soft.append(approvable)
             elif (r == "down" and b > a) or (r == "up" and b < a):
-                why.append(f"'{k}' {f} moved the wrong way {a} -> {b} (may only {'fall' if r == 'down' else 'rise'}): " + (f"-{old[k][0]} " if k in old else "") + (f"+{line}" if k in new else ""))
+                why.append(f"'{k}' {f} moved the wrong way {a} -> {b} (may only {'fall' if r == 'down' else 'rise'}): " + (f"-{old[k][0]} " if k in old else "") + (f"+{line}" if k in new else "")); soft.append(approvable)
+    soft += [False] * (len(why) - len(soft))
+    ap = approved_gate_edit(p) if why and all(soft) else None
+    if ap: say(True, p, f"the wrong-way move of approvable rows is APPROVED: an exact-diff approval (sha256 {ap[:12]}), already on main, is consumed by this landing: " + "; ".join(why)); return True
     say(not why, p, "improving only" if not why else "; ".join(why))
     return not why
 
@@ -143,12 +159,16 @@ def tier1(p):
             cont = re.compile(r"(\\|&&|\|\||\|)\s*$")
             if cont.search(prev) and not prev.lstrip().startswith("#"): why.append(f"joins onto the line above ({prev.strip()[-40:]!r}): +{added[0]}")
             if cont.search(added[-1]) or re.match(r"\s*(&&|\|\||\|)", added[0]): why.append(f"joins onto an existing line: +{added[-1] if cont.search(added[-1]) else added[0]}")
-    say(not why, p, "only added lines" if not why else "; ".join(why))
+    ap = approved_gate_edit(p) if any(w.startswith("removed/changed") for w in why) else None
+    if ap: why = [w for w in why if not w.startswith("removed/changed")]   # the owner's exact-diff approval relaxes the removed and changed lines; the added lines were judged above
+    say(not why, p, ("only added lines" if not ap else f"an approved edit (exact-diff approval, sha256 {ap[:12]}, already on main, consumed by this landing: the judge recomputed it); added lines plain") if not why else "; ".join(why))
 
 def strict(p):
     d = git("diff", "-U0", "--no-renames", mb, head, "--", p)
     why = [f"removed/changed: {l}" for l in d.splitlines() if l.startswith("-") and not l.startswith("---")]
-    say(not why, p, "only added lines (their effect is the consumer's own check)" if not why else "; ".join(why))
+    ap = approved_gate_edit(p) if why else None
+    if ap: why = []
+    say(not why, p, ("only added lines (their effect is the consumer's own check)" if not ap else f"an approved edit (exact-diff approval, sha256 {ap[:12]}, already on main, consumed by this landing: the judge recomputed it)") if not why else "; ".join(why))
 
 def is_source(p): return p in SOURCE or any(p.startswith(d) for d in SOURCE_DIRS)
 if TOUCHED:

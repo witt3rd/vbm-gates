@@ -6,11 +6,7 @@
 . "$(dirname "$0")/lib.sh"; . "$ROOT/core/git-hermetic.sh"; sandbox
 gdi=$ROOT/core/gate-diff-improving.sh
 fail() { echo "FAIL gate-diff-improving: $*" >&2; exit 1; }
-W=$T/w; newrepo "$W"; cd "$W"; mkdir -p scripts/attacks b docs
-printf 'GATES_TIER1=t1.sh\nGATES_STRICT=pin.txt\nGATES_LISTS=lists.txt scripts/plist.txt\nGATES_SOURCE=gate.sh\nGATES_SOURCE_DIRS=scripts/attacks/\nGATES_PROTECTED_LIST=scripts/plist.txt\nGATES_RULES_FILE=rules.txt\n' > "$T/gates.conf"
-printf '# FILE | KEY-REGEX | FIELDS | removable|fixed\nb/ledger.txt | proved | f0=up | fixed\nb/ledger.txt | open | f0=down | fixed\nb/ledger.txt | share | f0=ratio,f1=ratio | fixed\nb/ledger.txt | Mod.* | f0=down | removable\n' > rules.txt
-printf 'proved 5\nopen 3\nshare 2 3\nModA 4\n' > b/ledger.txt; printf '#!/usr/bin/env bash\nset -e\necho a\n' > t1.sh; printf 'v1\n' > pin.txt; printf 'x\n' > lists.txt; printf 'a/\nb.txt\n' > scripts/plist.txt
-printf 'g\n' > gate.sh; printf 'a\n' > scripts/attacks/01.sh; echo d > docs/a.md; git add -A; git commit -qm base; base=$(git rev-parse HEAD)
+gdi_world; W=$T/w
 judge() {   # judge NAME [flags]: the working tree is the head; sets JRC and JOUT, resets the tree
   git add -A; git commit -qm "$1" --allow-empty; local rc=0; JOUT=$("$gdi" --conf "$T/gates.conf" "${@:2}" "$base" HEAD 2>&1) || rc=$?; JRC=$rc; git reset -q --hard "$base"
 }
