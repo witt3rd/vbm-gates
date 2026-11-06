@@ -19,7 +19,7 @@ Plain shell, python and Lean 4; nothing language-specific except the Lean gates:
 
 ## How a repository uses it
 
-A repository vendors a pinned copy into `scripts/gates/` with the landing tool [vbm-land](https://github.com/witt3rd/vbm-land) 0.5 or later: `scripts/land/bin/land-update --pkg gates --source witt3rd/vbm-gates --signers FILE vX.Y.Z`. The files are hashed against a manifest, the manifest against a **signed release tag**, and the tag against the signers file the repository itself holds ([docs/signing.md](docs/signing.md) has the key and its fingerprint). A drift check in the repository's own Tier 1 fails on any difference from the pin. The repository **overrides nothing**: its only lever is `scripts/gates.conf` with the keys listed in `KEYS`. A missing feature is a new release here.
+A repository vendors a pinned copy into `scripts/gates/` with the landing tool [vbm-land](https://github.com/witt3rd/vbm-land) 0.5 or later: `scripts/land/bin/land-update --pkg gates --source witt3rd/vbm-gates --signers FILE vX.Y.Z`. The files are hashed against a manifest, the manifest against a **signed release tag**, and the tag against the signers file the repository itself holds ([docs/signing.md](docs/signing.md) has the key and its fingerprint). This is the one update flow for every pinned package: the landing tool itself, this gate set and, when it exists, the shared runtime (vbm-rt) are each pinned on their own by signed tag; there is no bundle and no combined installer. A drift check in the repository's own Tier 1 fails on any difference from the pin. The repository **overrides nothing**: its only lever is `scripts/gates.conf` with the keys listed in `KEYS`. A missing feature is a new release here.
 
 ## How it is checked
 
