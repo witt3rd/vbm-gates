@@ -38,6 +38,9 @@ fixture "$W"; printf 'ATK_DESC="x"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh);
 must_fail "a gate that fails for another reason than the expected one" run --only 06-expect; grep -q 'not for the expected reason' <<<"$MUST_FAIL_ERR" && grep -q '^PASSED  06-expect' <<<"$MUST_FAIL_ERR" || fail "an unexpected reason was accepted: $MUST_FAIL_ERR"
 fixture "$W"; printf 'ATK_DESC="x"; ATK_LEAN=1\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_apply() { sed -i "/^keep$/d" data.txt; }\n' > attacks/07-lean.sh; git add -A; git commit -qm lean
 out=$(run --no-lean --only 07-lean) || true; grep -q 'skip    07-lean' <<<"$out" && ok || fail "--no-lean did not skip a Lean attack: $out"
+# an attack that does not apply to this tree (atk_na) is reported n/a and not counted
+fixture "$W"; printf 'ATK_DESC="x"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_na() { true; }\natk_apply() { false; }\n' > attacks/08-na.sh; git add -A; git commit -qm na
+out=$(run) && grep -q 'n/a     08-na' <<<"$out" && grep -q '^PASS relabel-attacks: 3 of 3' <<<"$out" && ok || fail "a not-applicable attack was run or counted: $out"
 # dropped attacks: the shared ones, and the repository's own; and the two sets are one suite
 fixture "$W"; printf 'ATK_DESC="own"\nATK_GATES=(./g1.sh); ATK_GATE_FILES=(g1.sh)\natk_apply() { sed -i "/^keep$/d" data.txt; }\n' > scripts/attacks/10-own.sh; git add -A; git commit -qm own
 [ "$(run --list | tr '\n' ' ')" = "01-drop 02-mask 03-vars 10-own " ] && ok || fail "the repository's own attack is not in the suite"

@@ -11,7 +11,7 @@
 # --tree DIR (default .): the proposed tree (a git checkout; its HEAD plus any working-tree edits). --base REF (default origin/main): the merge-base of the change; only
 #   used by the hook. The suite that judges a change is main's copy (the proposal cannot weaken its own judge), and no attack of it may be dropped from the proposed tree (the shared ones live in the pin, whose
 #   drift check holds them; in this package's own repository they are checked here).
-# For each attack: a CONTROL (every gate command passes on the unattacked tree: else the gates are broken, and "refused" would be vacuous), then the attack is applied and
+# An attack may define atk_na (true: it does not apply to this tree: reported n/a, not counted). For each attack: a CONTROL (every gate command passes on the unattacked tree: else the gates are broken, and "refused" would be vacuous), then the attack is applied and
 #   committed, then each gate command runs; the attack is REFUSED when one of them fails (and, when the attack names one, its output carries the expected words).
 # --sabotage: the suite's own negative self-test: before each attack, every file the attack names in ATK_GATE_FILES is replaced by a stub that always succeeds ("a gate that
 #   cannot fail"); the attack must then be NOT refused, i.e. the suite must FAIL. A suite that still passes with its gate broken is itself broken (tests/test_relabel_attacks.sh).
@@ -76,8 +76,9 @@ run_gate() {   # run_gate CMD: output in $S/out, exit code returned
 }
 for id in $(ids); do
   [ -z "$only" ] || [ "$only" = "$id" ] || continue
-  ATK_DESC=; ATK_GATES=(); ATK_CONTROL=(); ATK_GATE_FILES=(); ATK_LEAN=0; ATK_EXPECT=
+  unset -f atk_apply atk_na; ATK_DESC=; ATK_GATES=(); ATK_CONTROL=(); ATK_GATE_FILES=(); ATK_LEAN=0; ATK_EXPECT=
   . "$shared/lib.sh"; . "$(atkfile "$id")"
+  if declare -F atk_na >/dev/null && atk_na; then say "n/a     $id: not applicable to this tree"; continue; fi   # e.g. an attack on a pinned copy, in the repository that holds the source
   if [ "$ATK_LEAN" = 1 ] && [ "$nolean" = 1 ]; then say "skip    $id: needs lake (--no-lean)"; continue; fi
   n=$((n + 1))
   git reset -q --hard "$proposed"; git clean -fdq
