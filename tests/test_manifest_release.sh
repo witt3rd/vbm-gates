@@ -15,7 +15,7 @@ world() {   # world: a scratch "origin" and a clone with the tools, a payload, f
 }
 world
 listed=$(awk '{print $2}' MANIFEST.sha256 | tr '\n' ' ')
-[ "$listed" = "KEYS VERSION attacks/01.sh bin/gates-check-config bin/gates-selftest bin/tier1-core core/a.sh hooks/h lean/l.lean tests/lean/test_l.sh tests/lib.sh tests/test_a.sh " ] && [ "$(bin/gates-manifest --list | tr '\n' ' ')" = "$listed" ] && ok || fail "the manifest lists the wrong files: $listed"
+[ "$listed" = "KEYS VERSION attacks/01.sh core/a.sh hooks/h lean/l.lean tests/lean/test_l.sh tests/lib.sh tests/test_a.sh " ] && [ "$(bin/gates-manifest --list | tr '\n' ' ')" = "$listed" ] && ok || fail "the manifest lists the wrong files: $listed"
 [ "$(grep ' core/a.sh$' MANIFEST.sha256 | cut -d' ' -f1)" = "$(sha256sum < core/a.sh | cut -d' ' -f1)" ] && ok || fail "a hash in the manifest is wrong"
 bin/gates-manifest --check >/dev/null && ok || fail "a fresh manifest fails --check"
 chk() { bin/gates-manifest --check 2>&1; }
