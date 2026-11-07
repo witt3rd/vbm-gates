@@ -6,7 +6,7 @@
 set -euo pipefail
 export LC_ALL=C
 root=$(cd "$(dirname "$0")/.." && pwd); cd "$root"
-tool_bins=(bin/tier1-core bin/gates-selftest bin/gates-check-config)   # the consumer-side commands of bin/
+tool_bins=()   # the consumer-side commands of bin/: none since the strip
 payload=(VERSION KEYS "${tool_bins[@]}")
 while IFS= read -r f; do
   case $f in core/*|hooks/*|lean/*|attacks/*|tests/lean/*) payload+=("$f");; tests/lib.sh|tests/run-lean.sh) payload+=("$f");;
