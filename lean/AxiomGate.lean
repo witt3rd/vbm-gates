@@ -170,6 +170,6 @@ def main (args : List String) : IO UInt32 := do
       return (msg.isEmpty, msg)
     let (out, ((ok, msg), _)) ← IO.FS.withIsolatedStreams (selfTest.toIO ctx { env })
     unless ok do IO.eprintln s!"tier1: the axiom gate's differential test failed:{msg}"; return 1
-    IO.println s!"axiom gate: differential test ok (the shared walk equals the per-constant audit: axiom sets of {sample.size} of {names.size} real constants{if all then "" else " (a sample; Tier 2 checks all)"} and of planted axioms in every constant kind at depth 0, 1 and 5; four broken walks are caught)"
+    IO.println s!"axiom gate: differential test ok (the shared walk equals the per-constant audit: axiom sets of {sample.size} of {names.size} real constants{if all then "" else " (a sample; the Lean leg checks all)"} and of planted axioms in every constant kind at depth 0, 1 and 5; four broken walks are caught)"
     IO.println "axiom gate: negative self-test ok (a constant on a non-standard axiom is rejected)"
   return if bad == 0 then 0 else 1

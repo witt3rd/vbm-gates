@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The trust-ledger gate (the repository's trust ledger, docs/trust-ledger.md by default; parameterised by the path roots it may cite). Run by core/trust-ledger.sh, which derives the REQUIRED keys from the code.
-Every required key (an extern symbol, a C/loader/workflow file, a closure module outside the proofs, the Lean runtime pieces, a tool)
+Every required key (an extern symbol, a C or loader file, a closure module outside the proofs, the Lean runtime pieces, a tool)
 must be named by the `Covers:` line of an entry; every `Covers:` token must name a required key (no stale cover); every entry must be complete
 (what, where it enters, what is assumed + the contract, the test, owner, a plan from the closed set; `accept` needs a reason); every file an entry cites must exist.
 The required set comes from the tree and the compiled closure, never from the ledger, so relabeling a definition cannot shrink it; the self-test removes each entry in turn

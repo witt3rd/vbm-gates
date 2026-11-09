@@ -8,9 +8,8 @@ Thank you for looking. A short, honest note about how this repository works.
 
 **Outside contributions are welcome**: open an issue, or a pull request from a fork. The owner reads it, and if the change is accepted it lands through the lander as a commit (your authorship is kept where the change is applied as is). A pull request is therefore a proposal, and may be closed with the change landed separately.
 
-## Pull requests and CI
+## Pull requests
 
-- CI runs only on a push to `main` and on manual dispatch, on GitHub-hosted runners with a read-only token. It does not run on pull requests, and it must never run on a self-hosted runner for a pull request from a fork. `tests/lint.sh` refuses a workflow that names `self-hosted`.
 - Run the checks yourself: `tests/run.sh` (the lints, then every `tests/test_*.sh`). Needs bash 4+, git 2.30+, `timeout`, `jq`, `python3`.
 
 ## What a good change looks like

@@ -9,7 +9,7 @@
 Plain shell, python and Lean 4; nothing language-specific except the Lean gates:
 
 * **ran-evidence** and the **parallel test runner** (`core/`): a test or a gate that ran zero cases fails. A refused tool, a skipped check or an early exit is never a pass.
-* **lints** (`core/`): a producer piped into an early-exiting consumer (a flaky pattern under `pipefail`), workflow files that are valid and public-safe (hosted runners only, no secret), a scratch `git` repository that is not hermetic, and a hermetic `git` helper for tests.
+* **lints** (`core/`): a producer piped into an early-exiting consumer (a flaky pattern under `pipefail`), a scratch `git` repository that is not hermetic, and a hermetic `git` helper for tests.
 * **the protected set** (`core/protected-set.sh`): a list of paths that wait for the owner. Exact paths, directories and patterns; an empty or unreadable list refuses everything; the list as of the base judges a change, so a change cannot loosen the list it is judged by.
 * **the gate-diff judge** (`core/gate-diff-improving.sh`): decides whether an edit to a gate is allowed. A baseline may only improve, a list may only grow, the Tier 1 script may only gain plain steps (a masked step such as `|| true`, `!`, `&` or `trap` fails), and a removed or changed line needs an exact-diff approval, whose hash **the judge recomputes itself**. An approval never excuses a masked line added in the same edit. Its tables are in `scripts/gates.conf`, and **an unknown key fails**, so a typo cannot switch a gate off.
 * **the relabel-attack runner and the shared attacks** (`core/relabel-attacks.sh`, `attacks/`): every known way to satisfy a gate by relabelling it is a small attack, applied to the proposed tree, which the proposed gates must still refuse. With a gate stubbed out so it cannot fail, the suite must itself fail. A repository adds attacks of its own wiring beside the shared ones.
@@ -23,13 +23,13 @@ A repository vendors a pinned copy into `scripts/gates/` with the landing tool [
 
 ## How it is checked
 
-The tests are hermetic: every test builds its own scratch repository, lists, baselines and approvals, and never reads the repository's real ones; a lint fails a test that does. Anything that must read a consumer's real state is a separate, named check (`bin/gates-check-config`) that runs in the consumer. The tests also run in the vendored layout (`tests/test_vendored_layout.sh` builds a consumer and runs the payload in it), and `tests/acceptance.sh` runs one real approval end to end on the real tree before a release. CI runs on GitHub-hosted runners only, with a read-only token.
+The tests are hermetic: every test builds its own scratch repository, lists, baselines and approvals, and never reads the repository's real ones; a lint fails a test that does. Anything that must read a consumer's real state is a separate, named check (`bin/gates-check-config`) that runs in the consumer. The tests also run in the vendored layout (`tests/test_vendored_layout.sh` builds a consumer and runs the payload in it), and `tests/acceptance.sh` runs one real approval end to end on the real tree before a release. Everything runs before the push, once: nothing runs after it.
 
 ## Honest limits
 
 * **A bug here reaches every repository at once.** The defence is the signed tag, each consumer's own Tier 1 and attack suite, and a rule that this repository's own gate sources are judged by its own judge.
 * The gates stop mistakes, not adversaries with write access.
-* Linux only for now. A Lean toolchain is needed only for the axiom gate and the attacks that use it: a second CI job runs them, and a box without one fails the Lean leg rather than skipping it silently.
+* Linux only for now. A Lean toolchain is needed only for the axiom gate and the attacks that use it: the Lean leg (`tests/run-lean.sh`) runs them, and a box without one fails it rather than skipping it silently.
 
 ## Contributing, security, licence
 

@@ -3,7 +3,7 @@
 # Each script runs in its own TMPDIR (so its mktemp dirs cannot clash) with its output captured; a passing script prints one line, a failing
 # one prints its whole log. The run FAILS if any script fails, is missing, or leaves no result (killed, or never started): a skipped script
 # is a failure, never a pass; so is a script that exits 0 without a ran-evidence line (`ran: NAME: N cases`, N > 0; lib-ran.sh) or that reports SKIPPED. TEST_JOBS caps the parallelism (default: the core count).
-# A test that passes alone but fails here (or only on the CI runner) is a bug in the test: find it, never retry it or raise a timeout.
+# A test that passes alone but fails here (or only on a cold machine) is a bug in the test: find it, never retry it or raise a timeout.
 # Do not wait a fixed time; wait on the readiness signal. Do not `kill $!` of a backgrounded function or pipeline and assume the program in it died.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)   # the reader lives beside this script; the working directory stays the caller's

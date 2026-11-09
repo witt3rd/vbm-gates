@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # trust-ledger.sh [--conf FILE] [--count]: the trust-ledger gate. The repository's trust ledger (GATES_TRUST_LEDGER) names everything outside our direct control that the repository executes or depends on. The REQUIRED
-# set is derived from the tree, never from the ledger: every C file under runtime/ and abi/, every hand-written binding loader, every CI workflow, the build pins, every @[extern] symbol under GATES_TRUST_DIRS and
+# set is derived from the tree, never from the ledger: every C file under runtime/ and abi/, every hand-written binding loader, the build pins, every @[extern] symbol under GATES_TRUST_DIRS and
 # abi/, what the Lean pin brings, the tools the repository's own scripts run, and whatever the repository's GATES_TRUST_EXTRA script prints (one key per line: closure modules, pinned libraries).
 # A boundary with no entry FAILS; an entry covering nothing required FAILS (core/trust-ledger.py negative-self-tests itself on every run). Off (a no-op, exit 0) when GATES_TRUST_LEDGER is unset.
 set -euo pipefail
@@ -15,13 +15,13 @@ files() { git ls-files --cached --others --exclude-standard "$@"; }   # a file n
 roots=scripts,docs,abi,runtime,bindings,vectors; dirs=abi
 for d in $GATES_TRUST_DIRS; do roots="$roots,$d"; dirs="$dirs $d"; done
 {
-  { files 'runtime/*.c' 'abi/*.c' 'bindings/*/loader.*' '.github/workflows/*' lean-toolchain mise.toml lakefile.lean; } | sed 's/^/file:/'
+  { files 'runtime/*.c' 'abi/*.c' 'bindings/*/loader.*' lean-toolchain mise.toml lakefile.lean; } | sed 's/^/file:/'
   # shellcheck disable=SC2086
   grep -rhE '^[[:space:]]*@\[extern' $dirs --include='*.lean' 2>/dev/null | sed -E 's/.*@\[extern[^"]*"([^"]+)".*/extern:\1/; t; s/.*/extern:UNNAMED/' | sort -u || true
   [ -f lean-toolchain ] && printf '%s\n' lean-compiler lean-runtime clang-lld || true
   [ -z "$GATES_TRUST_EXTRA" ] || "$GATES_TRUST_EXTRA"
   echo tool:python3   # the checker itself
-  for t in git gh mise wt flock lake leanc leanchecker nanoda node cargo; do   # the vendored packages are pinned and checked upstream: not scanned
+  for t in git mise wt flock lake leanc node cargo; do   # the vendored packages are pinned and checked upstream: not scanned
     files scripts lakefile.lean | grep -vE '^scripts/(land|gates)/|trust[-_]ledger' | xargs grep -lw -- "$t" >/dev/null 2>&1 && echo "tool:$t" || true; done
 } | sort -u > "$req"
 python3 "$here/core/trust-ledger.py" "$GATES_TRUST_LEDGER" "$req" "$roots"

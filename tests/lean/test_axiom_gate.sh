@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lean/axiom-gate.sh with a real Lean toolchain (the Lean leg: tests/run-lean.sh; hosted CI's second job, or a box with the pinned toolchain). A scratch lake project built in the sandbox (own lakefile, a
+# lean/axiom-gate.sh with a real Lean toolchain (the Lean leg: tests/run-lean.sh; a box with the pinned toolchain). A scratch lake project built in the sandbox (own lakefile, a
 # library Fx, a proofs library FxProofs, a library FxOther): the clean library passes and its --selftest (the shared walk against Lean's collectAxioms on real and planted constants; four broken walks are caught)
 # passes; a non-standard axiom under a configured root FAILS and is named; the same axiom under a root that is not configured is not checked; no roots, an unreadable conf and a stubbed gate cannot pass.
 . "$(dirname "$0")/../lib.sh"; . "$ROOT/core/git-hermetic.sh"; sandbox
